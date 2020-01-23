@@ -54,6 +54,7 @@ public class GameWindow extends JFrame {
         //TODO add restart match
 
         controller.startMatch(e);
+        startMatch.setText(controller.getLanguageString("restartMatch"));
       }
     });
 

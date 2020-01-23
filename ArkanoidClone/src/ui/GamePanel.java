@@ -30,7 +30,7 @@ public class GamePanel extends JPanel {
   private final int BLOCKS_COLUMN_NUMBER = 11;  //TODO fix even blocks
   private final int BLOCKS_ROW_NUMBER = 500 / BLOCK_HEIGHT;
   private final int EPSILON = 10;
-  private final double DEFAULT_INTENSITY = 2;
+  private final double DEFAULT_INTENSITY = 0.5;
 
   private Timer timer = null;
   private int refreshRate;
@@ -44,6 +44,72 @@ public class GamePanel extends JPanel {
     this.controller = controller;
 
     refreshRate = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()[0].getDisplayMode().getRefreshRate();
+
+    timer = new Timer(1/refreshRate, new ActionListener() {
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        if (isBallMoving) {
+          ball.setFrame(
+                  ball.getX() + intensity*direction[0], ball.getY() + intensity*direction[1],
+                  ball.getWidth(), ball.getHeight()
+          );
+
+          if (ball.getMinX() <= 0 || ball.getMaxX() >= GamePanel.this.getWidth()) {
+            direction[0] = -direction[0];
+          }
+
+          if (ball.getMinY() <= 0) {
+            direction[1] = -direction[1];
+          }
+
+          //TODO fix even intersection
+          for (int i = 0; i < blocks.size(); i++) {
+            if (blocks.get(i).size() != 0) {
+              for (int j = 0; j < blocks.get(i).size(); j++) {
+                if (blocks.get(i).get(j) != null) {
+                  Rectangle2D block = blocks.get(i).get(j);
+
+                  if (ball.getBounds2D().intersects(block)) {
+                    Rectangle2D intersection = ball.getBounds2D().createIntersection(block);
+
+                    if (Math.abs(block.getMaxX() - intersection.getCenterX()) < EPSILON ||
+                            Math.abs(block.getMinX() - intersection.getCenterX()) < EPSILON) {
+                      direction[0] = -direction[0];
+                    } else if (Math.abs(block.getMinY() - intersection.getCenterY()) < EPSILON ||
+                            Math.abs(block.getMaxY() - intersection.getCenterY()) < EPSILON) {
+                      direction[1] = -direction[1];
+                    }
+
+                    blocks.get(i).set(j, null);
+                  }
+                }
+              }
+            }
+          }
+
+          if (ball.getMaxY() >= player.getMinY()) {
+            if (ball.getCenterX() <= player.getMaxX() && ball.getCenterX() >= player.getMinX()) {
+              //TODO fix with realistic reflection
+              double value = (ball.getCenterX() - player.getCenterX())/2;
+              double norm = Math.sqrt(ball.getCenterX() + player.getCenterX());
+              System.out.println(value + " " + norm);
+              direction[1] = -direction[1];
+              direction[0] = value/norm;
+            } else {
+              timer.stop();
+              controller.showMessageDialog(controller.getLanguageString("matchOver"));
+
+              isGameStarted = false;
+              isBallMoving = false;
+            }
+          }
+        }
+
+        player.setFrame(playerPosition, PLAYER_Y_POSITION, PLAYER_WIDTH, PLAYER_HEIGHT);
+
+        GamePanel.this.repaint();
+      }
+    });
 
     addMouseMotionListener(new MouseMotionAdapter() {
       @Override
@@ -69,96 +135,28 @@ public class GamePanel extends JPanel {
     });
   }
 
-  void startGame(String command) {
-    if (command.equals(controller.getLanguageString("startMatch"))) {
-      //TODO write as re-playable
+  private void generateBlocks() {
+    double blockWidth = GamePanel.this.getWidth()/(double) BLOCKS_COLUMN_NUMBER;
 
-      double blockWidth = GamePanel.this.getWidth()/(double) BLOCKS_COLUMN_NUMBER;
+    blocks = new ArrayList<>(BLOCKS_ROW_NUMBER);
+    blocksColor = new ArrayList<>(BLOCKS_COLUMN_NUMBER * BLOCKS_ROW_NUMBER);
 
-      if (blocks == null) {
-        blocks = new ArrayList<>(BLOCKS_ROW_NUMBER);
-        blocksColor = new ArrayList<>(BLOCKS_COLUMN_NUMBER * BLOCKS_ROW_NUMBER);
+    for (int i = 0; i < BLOCKS_ROW_NUMBER; i++) {
+      blocks.add(new ArrayList<>(BLOCKS_COLUMN_NUMBER));
 
-        for (int i = 0; i < BLOCKS_ROW_NUMBER; i++) {
-          blocks.add(new ArrayList<>(BLOCKS_COLUMN_NUMBER));
-
-          for (int j = 0; j < BLOCKS_COLUMN_NUMBER; j++) {
-            Random rand = new Random();
-            blocks.get(i).add(new Rectangle2D.Double(j*blockWidth, 500-((i+1)*BLOCK_HEIGHT), blockWidth, BLOCK_HEIGHT));
-            blocksColor.add(new Color(rand.nextFloat(), rand.nextFloat(), rand.nextFloat()));
-          }
-        }
+      for (int j = 0; j < BLOCKS_COLUMN_NUMBER; j++) {
+        Random rand = new Random();
+        blocks.get(i).add(new Rectangle2D.Double(j*blockWidth, 500-((i+1)*BLOCK_HEIGHT), blockWidth, BLOCK_HEIGHT));
+        blocksColor.add(new Color(rand.nextFloat(), rand.nextFloat(), rand.nextFloat()));
       }
+    }
+  }
 
-      if (timer == null) {
-        timer = new Timer(1/refreshRate, new ActionListener() {
-          @Override
-          public void actionPerformed(ActionEvent e) {
-            if (isBallMoving) {
-              ball.setFrame(
-                  ball.getX() + intensity*direction[0], ball.getY() + intensity*direction[1],
-                  ball.getWidth(), ball.getHeight()
-              );
+  private void initialiseGame(boolean isFirstTime) {
+    generateBlocks();
+    direction = new double[] {0, -1};
 
-              if (ball.getMinX() <= 0 || ball.getMaxX() >= GamePanel.this.getWidth()) {
-                direction[0] = -direction[0];
-              }
-
-              if (ball.getMinY() <= 0) {
-                direction[1] = -direction[1];
-              }
-
-              //TODO fix even intersection
-              for (int i = 0; i < blocks.size(); i++) {
-                if (blocks.get(i).size() != 0) {
-                  for (int j = 0; j < blocks.get(i).size(); j++) {
-                    if (blocks.get(i).get(j) != null) {
-                      Rectangle2D block = blocks.get(i).get(j);
-
-                      if (ball.getBounds2D().intersects(block)) {
-                        Rectangle2D intersection = ball.getBounds2D().createIntersection(block);
-
-                        if (Math.abs(block.getMaxX() - intersection.getCenterX()) < EPSILON ||
-                            Math.abs(block.getMinX() - intersection.getCenterX()) < EPSILON) {
-                          direction[0] = -direction[0];
-                        } else if (Math.abs(block.getMinY() - intersection.getCenterY()) < EPSILON ||
-                            Math.abs(block.getMaxY() - intersection.getCenterY()) < EPSILON) {
-                          direction[1] = -direction[1];
-                        }
-
-                        blocks.get(i).set(j, null);
-                      }
-                    }
-                  }
-                }
-              }
-
-              if (ball.getMaxY() >= player.getMinY()) {
-                if (ball.getCenterX() <= player.getMaxX() && ball.getCenterX() >= player.getMinX()) {
-                  //TODO fix with realistic reflection
-                  double value = (ball.getCenterX() - player.getCenterX())/2;
-                  double norm = Math.sqrt(ball.getCenterX() + player.getCenterX());
-                  System.out.println(value + " " + norm);
-                  direction[1] = -direction[1];
-                  direction[0] = value/norm;
-                } else {
-                  //TODO add match lost
-                  timer.stop();
-                }
-              }
-            }
-
-            player.setFrame(playerPosition, PLAYER_Y_POSITION, PLAYER_WIDTH, PLAYER_HEIGHT);
-
-            GamePanel.this.repaint();
-          }
-        });
-      }
-
-      if (direction == null) {
-        direction = new double[] {0, -1};
-      }
-
+    if (isFirstTime) {
       if (player == null) {
         player = new Rectangle2D.Double(GamePanel.this.getWidth()/2 - PLAYER_WIDTH/2, PLAYER_Y_POSITION, PLAYER_WIDTH, PLAYER_HEIGHT);
       }
@@ -166,10 +164,22 @@ public class GamePanel extends JPanel {
       if (ball == null) {
         ball = new Ellipse2D.Double(GamePanel.this.getWidth()/2 - BALL_WIDTH/2, player.getMinY() - BALL_HEIGHT, BALL_WIDTH, BALL_HEIGHT);
       }
-
-      isGameStarted = true;
-      GamePanel.this.repaint();
+    } else {
+      player.setFrame(GamePanel.this.getWidth()/2 - PLAYER_WIDTH/2, PLAYER_Y_POSITION, PLAYER_WIDTH, PLAYER_HEIGHT);
+      ball.setFrame(GamePanel.this.getWidth()/2 - BALL_WIDTH/2, player.getMinY() - BALL_HEIGHT, BALL_WIDTH, BALL_HEIGHT);
     }
+  }
+
+  void startGame(String command) {
+    if (command.equals(controller.getLanguageString("startMatch"))) {
+      initialiseGame(true);
+    } else if (command.equals(controller.getLanguageString("restartMatch"))) {
+      initialiseGame(false);
+    }
+
+    hasBeenClicked = false;
+    isGameStarted = true;
+    GamePanel.this.repaint();
   }
 
   @Override

@@ -17,6 +17,8 @@ public class GameWindow extends JFrame {
   private JMenu about;
 
   private JPanel buttonPanel;
+  private JLabel lifeLabel;
+  private JLabel scoreLabel;
   private JButton startMatch;
 
   public GameWindow(Controller controller, String title, boolean useLookAndFeel) {
@@ -47,13 +49,17 @@ public class GameWindow extends JFrame {
     add(gamePanel);
 
     buttonPanel = new JPanel(new FlowLayout(FlowLayout.TRAILING));
+    lifeLabel = new JLabel(controller.getLanguageString("lives") + " " + controller.getLives());
+    scoreLabel = new JLabel(controller.getLanguageString("points") + " " + controller.getPoints());
+    buttonPanel.add(scoreLabel);
+    buttonPanel.add(lifeLabel);
+
     startMatch = new JButton(controller.getLanguageString("startMatch"));
     startMatch.addActionListener(new ActionListener() {
       @Override
       public void actionPerformed(ActionEvent e) {
-        //TODO add restart match
-
         controller.startMatch(e);
+
         startMatch.setText(controller.getLanguageString("restartMatch"));
       }
     });
@@ -71,5 +77,15 @@ public class GameWindow extends JFrame {
 
   public void requestMatchAction(String command) {
     gamePanel.startGame(command);
+  }
+
+  public void setScoreLabel() {
+    scoreLabel.setText(controller.getLanguageString("points") + " " + controller.getPoints());
+    repaint();
+  }
+
+  public void setLifeLabel() {
+    lifeLabel.setText(controller.getLanguageString("lives") + " " + controller.getLives());
+    repaint();
   }
 }
